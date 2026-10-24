@@ -1,0 +1,15 @@
+{
+  "name": "Clínica Alba",
+  "short_name": "Clínica Alba",
+  "description": "Turnos médicos y citas de pacientes",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EAF4FF",
+  "theme_color": "#1F5FD6",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
