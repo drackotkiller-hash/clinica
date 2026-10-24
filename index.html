@@ -766,6 +766,7 @@ async function push(){const nx=mk(),ids=new Set(DOCS.map(d=>String(d.id)));
  const delD=Object.keys(SNAP.docs).filter(i=>!ids.has(i));
  if(addD.length)await q('doctores',{m:'POST',b:addD});
  if(delD.length)await q('doctores?id=in.('+delD+')',{m:'DELETE'});
+ for(const d of DOCS)if(d.id in SNAP.docs&&SNAP.docs[d.id]!==d.n+'|'+d.e)await q('doctores?id=eq.'+d.id,{m:'PATCH',b:{nombre:d.n,especialidad:d.e}});
  const up=[];for(const k in S.sh)if(SNAP.sh[k]!==S.sh[k]){const[d,f]=k.split('|');up.push({doctor_id:+d,fecha:f,tipo:S.sh[k]})}
  if(up.length)await q('turnos?on_conflict=doctor_id,fecha',{m:'POST',b:up,pf:'resolution=merge-duplicates'});
  for(const k in SNAP.sh)if(!(k in S.sh)){const[d,f]=k.split('|');await q('turnos?doctor_id=eq.'+d+'&fecha=eq.'+f,{m:'DELETE'})}
@@ -847,7 +848,7 @@ function cal(){const y=calM.getFullYear(),m=calM.getMonth(),off=(new Date(y,m,1)
  const on=DOCS.map(d=>[d,shiftOf(d.id,calSel)]).filter(x=>x[1]),aps=S.ap.filter(a=>a.k==calSel).sort((x,y)=>x.h.localeCompare(y.h));
  return `<div class="calh"><button class="ghost" data-nav="-1" aria-label="Mes anterior">Anterior</button><h3>${calM.toLocaleDateString('es',{month:'long',year:'numeric'})}</h3><button class="ghost" data-nav="1" aria-label="Mes siguiente">Siguiente</button></div><div class="cal">${c}</div>
  <div class="detail"><h3>${fmt(calSel)}</h3><p class="note" style="margin-bottom:12px">De turno: ${on.length?on.map(([d,v])=>`${d.n} (${LBL[v]})`).join(', '):'nadie atiende este día.'}</p>${aps.length?aps.map(a=>apRow(a,false)).join(''):'<p class="note">Sin citas este día.</p>'}</div>`}
-let delAsk=0;
+let delAsk=0,editId=0;
 let tM=new Date(now.getFullYear(),now.getMonth(),1);
 const LET={m:'M',t:'T',mt:'D'};
 function team(){const y=tM.getFullYear(),m=tM.getMonth(),n=new Date(y,m+1,0).getDate();
@@ -862,7 +863,17 @@ function team(){const y=tM.getFullYear(),m=tM.getMonth(),n=new Date(y,m+1,0).get
  <div class="row3"><div><label for="np-t">Título</label><select class="f" id="np-t"><option>Dr.</option><option>Dra.</option><option>Ps.</option><option>Nut.</option><option>Mat.</option><option>Klgo.</option><option>Klga.</option></select></div><div><label for="np-n">Nombre y apellido</label><input class="f" id="np-n" maxlength="40" autocomplete="off"></div><div><label for="np-e">Especialidad</label><input class="f" id="np-e" list="esps" maxlength="40" autocomplete="off"><datalist id="esps">${specs().map(e=>`<option value="${esc(e)}">`).join('')}</datalist></div></div>
  <p class="err" id="np-err" role="alert" hidden></p>
  <p style="margin-top:20px"><button class="cta" data-a="addpuesto">Crear puesto</button></p></div>
- <div class="detail"><h3>Puestos actuales (${DOCS.length})</h3>${DOCS.map(d=>{const q=S.ap.filter(a=>a.d==d.id).length;return `<div class="ap"><div><b>${esc(d.n)}</b><span>${esc(d.e)}${d.jefe?' · Doctor en jefe':''}${delAsk==d.id?` · Se quitarán sus turnos${q?' y se cancelarán '+q+' cita'+(q>1?'s':''):''}`:''}</span></div>${d.jefe?'':delAsk==d.id?`<button class="x" data-del2="${d.id}">Sí, quitar</button><button class="x" data-delno="1">No quitar</button>`:`<button class="x" data-del="${d.id}">Quitar puesto</button>`}</div>`}).join('')}</div>`}
+ <div class="detail"><h3>Puestos actuales (${DOCS.length})</h3>${DOCS.map(d=>{const q=S.ap.filter(a=>a.d==d.id).length;
+  if(editId==d.id){const m=/^(Dr|Dra|Ps|Nut|Mat|Klgo|Klga)\.\s+/.exec(d.n),tt=m?m[1]+'.':'Dr.',nn=m?d.n.slice(m[0].length):d.n;
+   return `<div class="ap" style="flex-wrap:wrap"><div style="flex-basis:100%"><div class="row3"><div><label for="ed-t">Título</label><select class="f" id="ed-t">${['Dr.','Dra.','Ps.','Nut.','Mat.','Klgo.','Klga.'].map(o=>`<option ${o==tt?'selected':''}>${o}</option>`).join('')}</select></div><div><label for="ed-n">Nombre y apellido</label><input class="f" id="ed-n" maxlength="40" autocomplete="off" value="${esc(nn)}"></div><div><label for="ed-e">Cargo o especialidad</label><input class="f" id="ed-e" list="esps" maxlength="40" autocomplete="off" value="${esc(d.e)}"></div></div><p class="err" id="ed-err" role="alert" hidden></p></div><button class="cta" data-save="${d.id}">Guardar cambios</button><button class="x" data-editno="1">Cancelar</button></div>`}
+  return `<div class="ap"><div><b>${esc(d.n)}</b><span>${esc(d.e)}${d.jefe?' · Doctor en jefe':''}${delAsk==d.id?` · Se quitarán sus turnos${q?' y se cancelarán '+q+' cita'+(q>1?'s':''):''}`:''}</span></div>${delAsk==d.id?'':`<button class="x" data-edit="${d.id}">Editar</button>`}${d.jefe?'':delAsk==d.id?`<button class="x" data-del2="${d.id}">Sí, quitar</button><button class="x" data-delno="1">No quitar</button>`:`<button class="x" data-del="${d.id}">Quitar puesto</button>`}</div>`}).join('')}</div>`}
+function savePuesto(id){if(!ME||!ME.jefe)return;const d=DOCS.find(x=>x.id==id);if(!d)return;
+ const t=$('ed-t').value,n=$('ed-n').value.trim().replace(/\s+/g,' ').replace(/^(dr|dra|ps|nut|mat|klgo|klga)\.?\s+/i,''),e=$('ed-e').value.trim().replace(/\s+/g,' '),er=$('ed-err');
+ const bad=n.length<3?'Escribe el nombre y apellido.':e.length<3?'Escribe el cargo o especialidad.':DOCS.some(x=>x.id!=id&&norm(x.n)==norm(n))?'Ya existe un puesto con ese nombre.':'';
+ if(bad){er.textContent=bad;er.hidden=false;return}
+ d.n=t+' '+n;d.e=specs().find(x=>norm(x)==norm(e))||e.charAt(0).toUpperCase()+e.slice(1);
+ if(ME&&ME.id==id){ME.n=d.n;ME.e=d.e;$('hh').textContent='Hola, '+ME.n;$('eb').textContent=ME.jefe?'Doctor en jefe':ME.e}
+ editId=0;save();fillDl();toast('Puesto actualizado: '+d.n);render()}
 function delPuesto(id){delAsk=0;if(!ME||!ME.jefe)return;const d=DOCS.find(x=>x.id==id);if(!d||d.jefe)return;
  S.ap=S.ap.filter(a=>a.d!=id);Object.keys(S.sh).forEach(k=>{if(k.split('|')[0]==id)delete S.sh[k]});
  S.extra=S.extra.filter(x=>x.id!=id);if(!S.removed.includes(id))S.removed.push(id);
@@ -883,7 +894,7 @@ function agenda(){if(AV=='team'&&!(ME&&ME.jefe))AV='mine';
  $('daybody').innerHTML=ME?dayv():'';
  $('agbody').innerHTML=!ME?'':AV=='mine'?mine():AV=='cal'?cal():team()}
 const TORD=['mine','cal','team'];
-$('agtabs').onclick=e=>{const b=e.target.closest('[data-v]');if(b&&b.dataset.v!=AV){const c=TORD.indexOf(b.dataset.v)>TORD.indexOf(AV)?'a-r':'a-l',v=b.dataset.v;vt(()=>{AV=v;delAsk=0;agenda();anim($('agbody'),c)})}};
+$('agtabs').onclick=e=>{const b=e.target.closest('[data-v]');if(b&&b.dataset.v!=AV){const c=TORD.indexOf(b.dataset.v)>TORD.indexOf(AV)?'a-r':'a-l',v=b.dataset.v;vt(()=>{AV=v;delAsk=0;editId=0;agenda();anim($('agbody'),c)})}};
 $('daybody').onchange=e=>{if(e.target.id=='dd'&&/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){dayD=e.target.value;agenda()}};
 $('daybody').onclick=e=>{const t=e.target.closest('button');if(!t)return;
  if(t.dataset.call)llamar(t.dataset.call);else if(t.dataset.done)atendida(t.dataset.done);else if(t.dataset.dnav){const d=new Date(dayD+'T12:00');d.setDate(d.getDate()+ +t.dataset.dnav);dayD=iso(d);agenda()}
@@ -892,6 +903,9 @@ $('agbody').onclick=e=>{const t=e.target.closest('button');if(!t)return;
  if(t.dataset.call)llamar(t.dataset.call);else if(t.dataset.done)atendida(t.dataset.done);else if(t.dataset.del){delAsk=+t.dataset.del;agenda()}
  else if(t.dataset.del2)delPuesto(+t.dataset.del2)
  else if(t.dataset.delno){delAsk=0;agenda()}
+ else if(t.dataset.edit){editId=+t.dataset.edit;delAsk=0;agenda()}
+ else if(t.dataset.save)savePuesto(+t.dataset.save)
+ else if(t.dataset.editno){editId=0;agenda()}
  else if(t.classList.contains('x')){S.ap=S.ap.filter(a=>a.id!=t.dataset.id);save();toast('Cita cancelada');render()}
  else if(t.dataset.day){calSel=t.dataset.day;agenda()}
  else if(t.dataset.a=='addpuesto')addPuesto()
