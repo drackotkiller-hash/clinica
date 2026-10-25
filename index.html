@@ -1097,6 +1097,11 @@ $('lnkB').onclick=openBoard;$('wboard').onclick=openBoard;$('bd-back').onclick=g
 $('bd-full').onclick=()=>{try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}};
 setInterval(()=>{if(document.body.className!='board')return;$('bd-clock').textContent=new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})},1000);
 setInterval(async()=>{if(document.body.className!='board'||document.hidden)return;await syncBoard();renderBoard()},3000);
+function abrirTurnos(tn){tn=String(tn||'').toUpperCase().replace(/[^AP0-9-]/g,'').slice(0,6);
+ if(tn){bQ=tn;$('bd-q').value=tn}
+ if(document.body.className=='board'){renderBoard();window.scrollTo(0,0)}else openBoard()}
+try{const ps=new URLSearchParams(location.search);if(ps.get('llamados')){const tn0=ps.get('turno')||'';history.replaceState(null,'',location.pathname);setTimeout(()=>abrirTurnos(tn0),700)}}catch(e){}
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',ev=>{if(ev.data&&ev.data.type=='abrir-turnos')abrirTurnos(ev.data.tn)});
 async function syncBoard(){if(pend)return;try{const c=await q('citas?select=*&limit=5000');if(pend)return;S.ap=c.map(fromRow);SNAP.ap=mk().ap}catch(e){}}
 setInterval(async()=>{if(!document.body.classList.contains('role-m')||document.hidden||pend||AV=='team'||document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#agbody,#daybody'))return;try{await loadAll();stats();grid();agenda()}catch(e){}},15000);
 function llamar(id){const a=S.ap.find(x=>x.id==id);if(!a||!canCall(a))return;a.ll=Date.now();a.at=false;save();toast('Llamando al turno '+a.tn);render()}
@@ -1196,6 +1201,7 @@ async function pushSub(){const m=$('av-msg'),a=W.last;if(!a)return;
   const reg=await navigator.serviceWorker.register('sw.js');await navigator.serviceWorker.ready;
   const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)}),j=sub.toJSON();
   try{await q('push_subs',{m:'POST',b:{cita_id:a.id,endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth}})}catch(e2){if(e2.code!=409)throw e2}
+  try{const ch=await caches.open('alba-turnos');await ch.put('turno-'+a.id,new Response(a.tn||''))}catch(e3){}
   pushOn=a.id;m.textContent='Listo: te enviaremos una notificación al celular cuando llamen tu turno, aunque la pantalla esté bloqueada.'}
  catch(e){console.error(e);const ope=/OPR|Opera/i.test(navigator.userAgent);m.textContent='No pudimos activar las notificaciones ('+(e&&e.name||'error')+': '+String(e&&e.message||'').slice(0,90)+'). '+(ope?'Opera a veces no permite este tipo de notificaciones: prueba abrir esta página en Chrome. ':'')+'Mientras tanto, mantén esta página abierta para recibir el aviso con sonido.'}}
 const MSG0='Este dispositivo: te enviamos una notificación al celular cuando el doctor llame tu turno, incluso con la pantalla bloqueada. WhatsApp estará disponible próximamente.';
